@@ -2,7 +2,7 @@ var infiniteNumber = require('./infinite_number');
 
 function GameLoop(options) {
 	this.frame = 0;
-	this.fps = 1;
+	this.fps = 5;
 	this.stepTime = 1000 / this.fps;
 	this.onStep = options.onStep;
 	this.timeSync = options.timeSync;

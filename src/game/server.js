@@ -11,8 +11,9 @@ var timeSync = new TimeSyncronisation();
 var units = new UnitManager();
 var clients = new ClientManager();
 
-var wss = new WebSocketServer({port: 9001});
-wss.on('connection', function(connection) {
+
+var gameWss = new WebSocketServer({port: 9000});
+gameWss.on('connection', function(connection) {
 
     var client = clients.create(connection);
 
@@ -54,11 +55,12 @@ wss.on('connection', function(connection) {
 
             var previousState = client.unit.getState(infiniteNumber.decrease(frame));
 
-
+            /*
             if (!previousState) {
                 console.log(frame, client.unit);
                 process.exit();
             }
+            */
 
             var state = physics.nextUnitState(client.unit, previousState, input);
 
@@ -69,6 +71,7 @@ wss.on('connection', function(connection) {
                 type: 'update',
                 data: {
                     id: client.unit.id,
+                    frame: frame,
                     input: input,
                     state: state
                 }
@@ -126,16 +129,16 @@ var gameLoop = new GameLoop({
     onStep: function(frame) {
         var previousFrame = infiniteNumber.decrease(frame);
 
-        console.log("Server is on frame", frame);
+        //console.log("Server is on frame", frame);
 
         units.each(function(unit) {
 
-            console.log("Unit last has a frame", unit.lastReceivedInput);
+            //console.log("Unit last has a frame", unit.lastReceivedInput);
 
             // See if we have a real input (and thus state) for this frame
             if (unit.lastReceivedInput < frame) {
 
-                console.log("Creating an estimated input and state for them");
+                //console.log("Creating an estimated input and state for them");
 
                 // Create an estimate from the previous input
                 var input = unit.getInput(previousFrame).createEstimateCopy();
@@ -146,7 +149,7 @@ var gameLoop = new GameLoop({
                 // Save
                 unit.setFrame(frame, input, state);
 
-                console.log(frame, input, state);
+                //console.log(frame, input, state);
 
                 //console.log("here");
             }
@@ -159,9 +162,32 @@ var gameLoop = new GameLoop({
 
         });
 
+        // Send data..
+        var data = JSON.stringify({
+            frame: frame,
+            units: units.all()
+        });
+        for (var i in adminConnections) {
+            adminConnections[i].send(data);
+        }
+
     }
 });
 gameLoop.start();
 
 
-console.log("Started", gameLoop.getLastFrame().frame);
+// Websocket connections for admin clients
+var adminId = 0;
+var adminConnections = {};
+var adminWss = new WebSocketServer({port: 9001});
+adminWss.on('connection', function(connection) {
+    adminId++;
+    console.log("added", adminId);
+    adminConnections[adminId] = connection;
+    connection.on('close', (function(adminId) { return function() {
+        console.log("removed", adminId);
+        delete adminConnections[adminId];
+    }})(adminId));
+});
+
+//console.log("Started", gameLoop.getLastFrame().frame);

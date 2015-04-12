@@ -27,6 +27,9 @@ UnitManager.prototype.createFrom = function(options) {
 	this.id++;
 	return unit;
 }
+UnitManager.prototype.get = function(id) {
+	return this.units[id];
+}
 
 UnitManager.prototype.remove = function(unit) {
 	delete this.units[unit.id];
@@ -37,6 +40,15 @@ UnitManager.prototype.each = function(callback) {
 			callback(this.units[i]);
 		}
 	}
+}
+UnitManager.prototype.all = function(callback) {
+	var arr = [];
+	for (var i in this.units) {
+		if (this.units.hasOwnProperty(i)) {
+			arr.push(this.units[i]);
+		}
+	}
+	return arr;
 }
 
 

@@ -4,7 +4,7 @@ function UI() {
 	this.avatar = document.createElement("div");
 	this.avatar.style.width = "10px";
 	this.avatar.style.height = "10px";
-	this.avatar.style.backgroundColor = "black";
+	this.avatar.style.backgroundColor = "red";
 	this.avatar.style.position = "absolute";
 	this.avatar.style.left = "100px";
 	this.avatar.style.top = "100px";

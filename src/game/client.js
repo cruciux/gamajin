@@ -38,7 +38,18 @@ var networking = new ClientNetworking({
 
 		} else if (type === "update") { // updated unit input/state
 
+            // Update the relevant unit..
+            var unit = units.get(data.id);
 
+            unit.setFrame(data.frame, new Input(data.input), new State(data.state));
+
+            if (unit === client.unit) {
+
+                var state = unit.getLastReceivedState();
+
+                ui.setPosition(state.x,state.y);
+
+            }
 
         } else if (type === "createUnit") {
 
@@ -78,10 +89,12 @@ var gameLoop = new GameLoop({
 
 		if (client.unit !== null) {
 
-            console.log(client.unit);
-            gameLoop.stop();
+            //console.log(client.unit);
+            //gameLoop.stop();
 
             var input = ui.getInput();
+
+            console.log(input);
 
             /*
                 We might not have an input/state for the previous frame if we've only just started sending updates
