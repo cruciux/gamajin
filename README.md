@@ -48,3 +48,12 @@ Navigate to http://localhost:8000/backend.html to see some cool stats about all 
 ![alt text](https://cloud.githubusercontent.com/assets/1318966/7122803/9ffd88a6-e215-11e4-8aa1-5e4e341155b0.png "Screenshot of unit")
 
 The frame numbers go up the right hand side in real time. The green blocks show the real received inputs from the client, and the black bars show estimated ones (due to the server not receiving packets for a while for some reason, such as lag)
+
+
+### Future plans
+
+* get client-side prediction working for a clients own unit
+* get client-side prediction working for other units using extrapolation of their last known positions
+* handle any errors in prediction by using interpolation of the estimate and the real values
+* implement guns and projectiles
+* nicer graphics using WebGL
