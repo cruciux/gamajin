@@ -1,4 +1,7 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+/**
+ * React code for the backend view
+ */
 
 var React = require('react');
 
@@ -23,7 +26,7 @@ var Backend = React.createClass({displayName: "Backend",
     },
     render: function() {
 
-        var frameStart = this.state.data.frame - 10;
+        var frameStart = this.state.data.frame - 20;
         var frameEnd = this.state.data.frame + 2;
         var bars = [];
 
@@ -37,7 +40,7 @@ var Backend = React.createClass({displayName: "Backend",
 
         return (
             React.createElement("div", null, 
-                React.createElement("div", null, "Frame: ", this.state.data.frame), 
+                React.createElement("div", null, "Frame: ", this.state.data.frame, " (running at ", this.state.data.fps, "fps)"), 
                 React.createElement("div", null, "Players connected: ", this.state.data.units.length), 
 
                 React.createElement("div", {className: "units", style: {overflow:'hidden'}}, 
@@ -63,9 +66,8 @@ var Unit = React.createClass({displayName: "Unit",
     render: function() {
 
         var blocks = [];
+
         for (var i=this.props.frameEnd; i>this.props.frameStart; i--) {
-
-
             if (this.props.unit.inputs[i] === undefined) {
                 blocks.push(
                     React.createElement("div", {key: i, className: "unit-frame"})
@@ -83,12 +85,10 @@ var Unit = React.createClass({displayName: "Unit",
 
                 blocks.push(
                     React.createElement("div", {key: i, className: "unit-frame", style: styles}, 
-                        "Input=(", input.horizontal, ",", input.vertical, ") Pos=(", state.x, ",", state.y, ")"
+                        "In=(", input.horizontal, ",", input.vertical, ") V=(", state.vx, ",", state.vy, ") P=(", state.x, ",", state.y, ")"
                     )
                 )
             }
-
-            
         }
 
         return (

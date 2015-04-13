@@ -1,10 +1,13 @@
-var stats = require("stats-lite");
-
 /**
- *	Provies time syncronisation between clients and the server
- *	
- *	Assume packets will arrive in order (tcp/websockets)
- **/
+ * Implements a time syncrosation protocol similar to NTP that can let the client
+ * time rapidly move towards the server time. This is needed for accurate multiplayer
+ * physics.
+ *
+ * This module doesn't do networking itself, instead it asks you to send packets
+ * and has methods to receive packets. Meaning the user must implement networking.
+ */
+
+var stats = require("stats-lite");
 
 function TimeSyncronisation(options) {
 	options = typeof options === "undefined" ? {} : options;
@@ -22,21 +25,8 @@ function TimeSyncronisation(options) {
 	this.spaceBetweenLaterMessages = 250;
 	this.intervalId = null;
 	this.maxPackets = 50;
-
-
-	this.fakeServerAheadBy = 0;
-	/*
-	var self = this;
-	var a = setInterval(function() {
-		self.fakeServerAheadBy += 1;
-
-		if (self.fakeServerAheadBy > 400) {
-			console.log("stop");
-			clearInterval(a);
-		}
-	}, 100);
-	*/
 }
+
 TimeSyncronisation.prototype.getTime = function() {
 	return new Date().getTime() + this.serverClockAheadByTime;
 }
@@ -103,8 +93,6 @@ TimeSyncronisation.prototype.receiveFromServer = function(data) {
 		// This is our best estimate for latency..
 		var latency = stats.mean(filteredLatencies);
 
-		//console.log(stats.mean(latencies), latency);
-
 		var serverClockAheadByTimes = [];
 		for (var i in this.messages) {
 			serverClockAheadByTimes.push(this.messages[i].serverTime - this.messages[i].clientTime - latency);
@@ -113,7 +101,6 @@ TimeSyncronisation.prototype.receiveFromServer = function(data) {
 		var filteredserverClockAheadByTimes = this.filterWithinOneStandardDeviation(serverClockAheadByTimes);
 
 		this.serverClockAheadByTime = stats.mean(filteredserverClockAheadByTimes);
-
 
 
 		// Finally check this calculated offset fits logically with our latest packet
@@ -127,8 +114,6 @@ TimeSyncronisation.prototype.receiveFromServer = function(data) {
 			if (possibleAdjustment < adjustment) {
 				adjustment = possibleAdjustment;
 			}
-			//console.log("aaa", m.clientTime + this.serverClockAheadByTime, m.serverTime, m.clientTime2 + this.serverClockAheadByTime);
-			//console.log("Adjusting serverClockAheadByTime by", adjustment);
 		}
 
 		if (m.serverTime > m.clientTime2 + this.serverClockAheadByTime) {
@@ -136,8 +121,6 @@ TimeSyncronisation.prototype.receiveFromServer = function(data) {
 			if (possibleAdjustment > adjustment) {
 				adjustment = possibleAdjustment;
 			}
-			//console.log("Adjusting serverClockAheadByTime by", adjustment);
-			//console.log("bbb", m.clientTime + this.serverClockAheadByTime, m.serverTime, m.clientTime2 + this.serverClockAheadByTime);
 		}
 		this.serverClockAheadByTime = Math.round(this.serverClockAheadByTime + adjustment);
 
@@ -146,13 +129,6 @@ TimeSyncronisation.prototype.receiveFromServer = function(data) {
 				this.onFinished();
 			}
 		}
-
-		//console.log("Estimate server ahead by", Math.round(this.serverClockAheadByTime));	
-
-		//console.log(m.clientTime + this.serverClockAheadByTime, m.serverTime, m.clientTime2 + this.serverClockAheadByTime);	
-
-		//document.getElementById('client').innerHTML = new Date().getTime();
-		//document.getElementById('server').innerHTML = new Date().getTime() + this.serverClockAheadByTime;
 	}
 
 }
@@ -174,7 +150,7 @@ TimeSyncronisation.prototype.filterWithinOneStandardDeviation = function (items)
 }
 
 TimeSyncronisation.prototype.receiveFromClient = function(data) {
-	data.serverTime = new Date().getTime() + this.fakeServerAheadBy;
+	data.serverTime = new Date().getTime();
 	return data;
 }
 

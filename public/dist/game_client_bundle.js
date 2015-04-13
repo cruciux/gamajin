@@ -1,4 +1,8 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+/**
+ * Central starting point for the client code
+ */
+
 var TimeSyncronisation = require('./modules/time_syncronisation');
 var GameLoop = require('./modules/game_loop');
 var UI = require('./modules/ui');
@@ -10,13 +14,14 @@ var infiniteNumber = require('./modules/infinite_number');
 
 var units = new UnitManager();
 
+// Represents the local client
 var client = {
 	id: null,
 	unit: null
 };
 
+// Kick-off the client networking to the server
 var networking = new ClientNetworking({
-	onOpen: function() {},
 	onMessage: function(type, data) {
 
 		if (type === "init") { // immediately after connected
@@ -27,33 +32,27 @@ var networking = new ClientNetworking({
 			timeSync.receiveFromServer(data);
 
 		} else if (type === "frame") { // start game
-
-            console.log("start game!", data);
-
 			gameLoop.start({
 				startTime: data.time,
 				startFrame: data.frame
 			});
 
+            // Tell the server to create us a unit
 			networking.command("create unit");
 
 		} else if (type === "update") { // updated unit input/state
 
             // Update the relevant unit..
             var unit = units.get(data.id);
-
             unit.setFrame(data.frame, new Input(data.input), new State(data.state));
 
-            if (unit === client.unit) {
-
-                var state = unit.getLastReceivedState();
-
-                ui.setPosition(state.x,state.y);
-
-            }
-
+            // Update the UI
+            var state = unit.getLastReceivedState();
+            ui.setPosition(unit.id, state.x, state.y);
+ 
         } else if (type === "createUnit") {
 
+            // The server has told us to make a new unit
 			var unit = units.createFrom({
 				id: data.id,
 				frame: data.frame,
@@ -63,6 +62,14 @@ var networking = new ClientNetworking({
 			if (data.clientId === client.id) {
 				client.unit = unit;
 			}
+            ui.createAvatar(unit.id);
+
+        } else if (type === "removeUnit") {
+
+            var unit = units.get(data.id);
+            
+            units.remove(unit);
+            ui.removeAvatar(unit.id);
 
 		} else {
 			console.log("unknown packet", type, data);
@@ -70,6 +77,7 @@ var networking = new ClientNetworking({
 	}
 });
 
+// Setup the time sync module
 var timeSync = new TimeSyncronisation({
 	onSendToServer: function(data) {
 		networking.send('time', data);
@@ -80,73 +88,27 @@ var timeSync = new TimeSyncronisation({
 	}
 });
 
+// Setup the simple UI
 var ui = new UI();
 
+// Setup the game loop. onStep will be called each frame
 var gameLoop = new GameLoop({
 	timeSync: timeSync,
 	onStep: function(frame) {
 
-        console.log("Client is on frame", frame);
-
 		if (client.unit !== null) {
 
-            //console.log(client.unit);
-            //gameLoop.stop();
-
             var input = ui.getInput();
-
-            console.log(input);
-
-            /*
-                We might not have an input/state for the previous frame if we've only just started sending updates
-                for this unit. The server allows us to skip forward, but never back.
-
-                Just get the last received one
-            */
-
             var previousState = client.unit.getLastReceivedState();
 
-            // Create an estimated state
-            //var previousState = client.unit.getState(infiniteNumber.decrease(frame));
-
-			// Networking
+            // Send the local input to the server
 			networking.send('input', {
 				frame: frame,
 				input: input
 			});
-
 		}
-
-		/*
-		// Input
-		var input = ui.getInput();
-		input.frame = frame;
-
-		// Networking
-		networking.send('input', input);
-
-		// Physics
-		unit.x += 10 * input.horizontal;
-		unit.y += 10 * input.vertical;
-
-		// Render (update the UI)
-		ui.setPosition(unit.x,unit.y);
-		*/
 	}
 });
-
-
-
-
-
-// Export the networking to the window temporarily
-window.net = networking;
-
-
-
-
-
-
 
 },{"./modules/client_networking":4,"./modules/game_loop":5,"./modules/infinite_number":6,"./modules/input":7,"./modules/state":8,"./modules/time_syncronisation":9,"./modules/ui":10,"./modules/unit_manager":12}],2:[function(require,module,exports){
 module.exports = isNumber
@@ -270,6 +232,10 @@ function percentile(vals, ptile) {
   return (1 - fract) * vals[int_part] + fract * vals[int_part + 1]
 }
 },{"isnumber":2}],4:[function(require,module,exports){
+/**
+ * Deals with the networking on the client side, to connect to the game server
+ */
+
 function ClientNetworking(options) {
 	var self = this;
 	this.packetsToSend = [];
@@ -279,7 +245,7 @@ function ClientNetworking(options) {
 	this.connection.onopen = function () {
 		self.connected = true;
 		options.onOpen();
-		console.log("connected");
+		console.log("Connected");
 
 		// Any packets to send?
 		for (var i in self.packetsToSend) {
@@ -299,6 +265,7 @@ function ClientNetworking(options) {
 		options.onMessage(packet.type, packet.data);
 	};
 }
+
 ClientNetworking.prototype.send = function(type, data) {
 	data = typeof data === "undefined" ? {} : data;
 	var packet = JSON.stringify({
@@ -311,6 +278,7 @@ ClientNetworking.prototype.send = function(type, data) {
 		this.packetsToSend.push(packet);
 	}
 }
+
 ClientNetworking.prototype.command = function(command) {
 	this.send("command", {
 		c: command
@@ -320,27 +288,33 @@ ClientNetworking.prototype.command = function(command) {
 module.exports = ClientNetworking;
 
 },{}],5:[function(require,module,exports){
+/**
+ * Implements the logic for a game loop that runs an exact number of times per second.
+ *
+ * The game loop is run on the client and server
+ */
+
 var infiniteNumber = require('./infinite_number');
 
 function GameLoop(options) {
 	this.frame = 0;
-	this.fps = 5;
+	this.fps = 10;
 	this.stepTime = 1000 / this.fps;
 	this.onStep = options.onStep;
 	this.timeSync = options.timeSync;
     this.exit = false;
-
-    // initial frame is 0, now
     this.lastFrame = {frame: this.frame, time: this.timeSync.getTime()};
 };
+
 GameLoop.prototype.getLastFrame = function() {
 	return this.lastFrame;
 };
+
 GameLoop.prototype.stop = function() {
     this.exit = true;
 };
-GameLoop.prototype.start = function(options) {
 
+GameLoop.prototype.start = function(options) {
 	options = typeof options !== "undefined" ? options : {};
 
 	var self = this;
@@ -381,14 +355,18 @@ GameLoop.prototype.start = function(options) {
 	}, 1);
 };
 
-
 module.exports = GameLoop;
 
 },{"./infinite_number":6}],6:[function(require,module,exports){
+/**
+ * Implements logic for a number that wraps round, e.g. 0,1,2..98,99,0,1
+ *
+ * Primarily used for the number attached to each frame
+ */
 
 var wrapOnNumber = 10000;
 
-var correctNumber = function(number) {
+var boundNumber = function(number) {
 	if (number < 0) {
 		number = wrapOnNumber + number;
 	} else if (number >= wrapOnNumber) {
@@ -401,19 +379,19 @@ module.exports = {
 	increase: function(number, amount) {
 		amount = (typeof amount === "undefined") ? 1 : amount;
 		number += amount;
-		return correctNumber(number);
+		return boundNumber(number);
 	},
 	decrease: function(number, amount) {
 		amount = (typeof amount === "undefined") ? 1 : amount;
 		number -= amount;
-		return correctNumber(number);
+		return boundNumber(number);
 	},
 	isFirstBeforeSecond: function(first, second) {
 		if (Math.abs(first - second) < wrapOnNumber/2) {
 			return first < second;
 		}
-		first = correctNumber(first - (wrapOnNumber/2));
-		second = correctNumber(second - (wrapOnNumber/2));
+		first = boundNumber(first - (wrapOnNumber/2));
+		second = boundNumber(second - (wrapOnNumber/2));
 		return first < second;
 	},
 	difference: function(numberA, numberB) {
@@ -422,14 +400,20 @@ module.exports = {
 }
 
 },{}],7:[function(require,module,exports){
+/**
+ * Encapsulates the input generated from the client for a certain frame
+ */
+
 function Input(options) {
 	this.horizontal = options.horizontal;
 	this.vertical = options.vertical;
 	this.estimate = false;
 }
+
 Input.prototype.isEstimate = function() {
 	return this.estimate;
 }
+
 Input.prototype.createEstimateCopy = function() {
 	var input = new Input(this);
 	input.estimate = true;
@@ -437,26 +421,36 @@ Input.prototype.createEstimateCopy = function() {
 }
 
 module.exports = Input;
+
 },{}],8:[function(require,module,exports){
 function State(options) {
-	this.x = options.x;
-	this.y = options.y;
+	this.x = options.x || 0;
+	this.y = options.y || 0;
+    this.vx = options.vx || 0;
+    this.vy = options.vy || 0;
 	this.estimate = false;
 }
 State.prototype.isEstimate = function() {
 	return this.estimate;
 }
+State.prototype.copy = function() {
+    var state = new State(this);
+    return state;
+}
 
 module.exports = State;
 
 },{}],9:[function(require,module,exports){
-var stats = require("stats-lite");
-
 /**
- *	Provies time syncronisation between clients and the server
- *	
- *	Assume packets will arrive in order (tcp/websockets)
- **/
+ * Implements a time syncrosation protocol similar to NTP that can let the client
+ * time rapidly move towards the server time. This is needed for accurate multiplayer
+ * physics.
+ *
+ * This module doesn't do networking itself, instead it asks you to send packets
+ * and has methods to receive packets. Meaning the user must implement networking.
+ */
+
+var stats = require("stats-lite");
 
 function TimeSyncronisation(options) {
 	options = typeof options === "undefined" ? {} : options;
@@ -474,21 +468,8 @@ function TimeSyncronisation(options) {
 	this.spaceBetweenLaterMessages = 250;
 	this.intervalId = null;
 	this.maxPackets = 50;
-
-
-	this.fakeServerAheadBy = 0;
-	/*
-	var self = this;
-	var a = setInterval(function() {
-		self.fakeServerAheadBy += 1;
-
-		if (self.fakeServerAheadBy > 400) {
-			console.log("stop");
-			clearInterval(a);
-		}
-	}, 100);
-	*/
 }
+
 TimeSyncronisation.prototype.getTime = function() {
 	return new Date().getTime() + this.serverClockAheadByTime;
 }
@@ -555,8 +536,6 @@ TimeSyncronisation.prototype.receiveFromServer = function(data) {
 		// This is our best estimate for latency..
 		var latency = stats.mean(filteredLatencies);
 
-		//console.log(stats.mean(latencies), latency);
-
 		var serverClockAheadByTimes = [];
 		for (var i in this.messages) {
 			serverClockAheadByTimes.push(this.messages[i].serverTime - this.messages[i].clientTime - latency);
@@ -565,7 +544,6 @@ TimeSyncronisation.prototype.receiveFromServer = function(data) {
 		var filteredserverClockAheadByTimes = this.filterWithinOneStandardDeviation(serverClockAheadByTimes);
 
 		this.serverClockAheadByTime = stats.mean(filteredserverClockAheadByTimes);
-
 
 
 		// Finally check this calculated offset fits logically with our latest packet
@@ -579,8 +557,6 @@ TimeSyncronisation.prototype.receiveFromServer = function(data) {
 			if (possibleAdjustment < adjustment) {
 				adjustment = possibleAdjustment;
 			}
-			//console.log("aaa", m.clientTime + this.serverClockAheadByTime, m.serverTime, m.clientTime2 + this.serverClockAheadByTime);
-			//console.log("Adjusting serverClockAheadByTime by", adjustment);
 		}
 
 		if (m.serverTime > m.clientTime2 + this.serverClockAheadByTime) {
@@ -588,8 +564,6 @@ TimeSyncronisation.prototype.receiveFromServer = function(data) {
 			if (possibleAdjustment > adjustment) {
 				adjustment = possibleAdjustment;
 			}
-			//console.log("Adjusting serverClockAheadByTime by", adjustment);
-			//console.log("bbb", m.clientTime + this.serverClockAheadByTime, m.serverTime, m.clientTime2 + this.serverClockAheadByTime);
 		}
 		this.serverClockAheadByTime = Math.round(this.serverClockAheadByTime + adjustment);
 
@@ -598,13 +572,6 @@ TimeSyncronisation.prototype.receiveFromServer = function(data) {
 				this.onFinished();
 			}
 		}
-
-		//console.log("Estimate server ahead by", Math.round(this.serverClockAheadByTime));	
-
-		//console.log(m.clientTime + this.serverClockAheadByTime, m.serverTime, m.clientTime2 + this.serverClockAheadByTime);	
-
-		//document.getElementById('client').innerHTML = new Date().getTime();
-		//document.getElementById('server').innerHTML = new Date().getTime() + this.serverClockAheadByTime;
 	}
 
 }
@@ -626,27 +593,22 @@ TimeSyncronisation.prototype.filterWithinOneStandardDeviation = function (items)
 }
 
 TimeSyncronisation.prototype.receiveFromClient = function(data) {
-	data.serverTime = new Date().getTime() + this.fakeServerAheadBy;
+	data.serverTime = new Date().getTime();
 	return data;
 }
 
 module.exports = TimeSyncronisation;
 
 },{"stats-lite":3}],10:[function(require,module,exports){
+/**
+ * A very basic HTML user interface for displaying the units, and capturing 
+ * user input via the keyboard.
+ */
+
 var Input = require('./input');
 
 function UI() {
-	this.avatar = document.createElement("div");
-	this.avatar.style.width = "10px";
-	this.avatar.style.height = "10px";
-	this.avatar.style.backgroundColor = "red";
-	this.avatar.style.position = "absolute";
-	this.avatar.style.left = "100px";
-	this.avatar.style.top = "100px";
-
-	window.avatar = this.avatar;
-
-	document.body.appendChild(this.avatar);
+	this.avatars = {};
 
 	var self = this;
 	this.keysDown = {};
@@ -657,19 +619,40 @@ function UI() {
 	document.body.addEventListener("keyup", function(e) {
 		delete self.keysDown[e.keyCode];
 	});
+}
 
+UI.prototype.createAvatar = function(id) {
+	// Create a simple div to represent the unit and add to the dom
+	var avatar = document.createElement("div");
+	avatar.style.width = "10px";
+	avatar.style.height = "10px";
+	avatar.style.backgroundColor = "red";
+	avatar.style.position = "absolute";
+	avatar.style.left = "100px";
+	avatar.style.top = "100px";
+	document.body.appendChild(avatar);
+	this.avatars[id] = avatar;
 }
-UI.prototype.setPosition = function(x, y) {
-	this.avatar.style.left = x + "px";
-	this.avatar.style.top = y + "px";
+
+UI.prototype.removeAvatar = function(id) {
+	// Delete from the DOM
+	if (this.avatars[id].parentNode) {
+		this.avatars[id].parentNode.removeChild(this.avatars[id]);
+	}
+	// Delete from the internal list
+	delete this.avatars[id];
 }
+
+UI.prototype.setPosition = function(id, x, y) {
+	this.avatars[id].style.left = x + "px";
+	this.avatars[id].style.top = y + "px";
+}
+
 UI.prototype.getInput = function() {
-	
 	var input = new Input({
 		horizontal: 0,
 		vertical: 0
 	});
-
 	if (87 in this.keysDown) { // Up
 		input.vertical -= 1;
 	}
@@ -686,7 +669,13 @@ UI.prototype.getInput = function() {
 }
 
 module.exports = UI;
+
 },{"./input":7}],11:[function(require,module,exports){
+/**
+ * Represents a unit in the game. A unit is the physical being that a client controls.
+ * In future, a client could control multiple units.
+ */
+
 function Unit(id) {
 	this.id = id;
 	this.inputs = {};
@@ -694,7 +683,8 @@ function Unit(id) {
 
 	this.lastReceivedInput = null;
 	this.lastEstimatedInput = null;
-};
+}
+
 Unit.prototype.setFrame = function(frame, input, state) {
 	this.inputs[frame] = input;
 	this.states[frame] = state;
@@ -704,31 +694,36 @@ Unit.prototype.setFrame = function(frame, input, state) {
 	} else {
 		this.lastReceivedInput = frame;
 	}
-};
+}
+
 Unit.prototype.getInput = function(frame) {
 	return this.inputs[frame];
-};
+}
+
 Unit.prototype.getState = function(frame) {
 	return this.states[frame];
-};
-Unit.prototype.physics = function() {
-	
-};
+}
+
 Unit.prototype.getLastReceivedState = function() {
     return this.states[this.lastReceivedInput];
 }
+
 module.exports = Unit;
 
 },{}],12:[function(require,module,exports){
+/**
+ * Manages a collection of units, making it easy to add/remove and iterate over them
+ */
+
 var Unit = require('./unit');
 var Input = require('./input');
 var State = require('./state');
-
 
 function UnitManager() {
 	this.id = 1;
 	this.units = {};
 }
+
 UnitManager.prototype.create = function(frame) {
 	var unit = new Unit(this.id);
 
@@ -739,6 +734,7 @@ UnitManager.prototype.create = function(frame) {
 	this.id++;
 	return unit;
 }
+
 UnitManager.prototype.createFrom = function(options) {
 	var unit = new Unit(options.id);
 
@@ -749,6 +745,7 @@ UnitManager.prototype.createFrom = function(options) {
 	this.id++;
 	return unit;
 }
+
 UnitManager.prototype.get = function(id) {
 	return this.units[id];
 }
@@ -756,6 +753,7 @@ UnitManager.prototype.get = function(id) {
 UnitManager.prototype.remove = function(unit) {
 	delete this.units[unit.id];
 }
+
 UnitManager.prototype.each = function(callback) {
 	for (var i in this.units) {
 		if (this.units.hasOwnProperty(i)) {
@@ -763,6 +761,7 @@ UnitManager.prototype.each = function(callback) {
 		}
 	}
 }
+
 UnitManager.prototype.all = function(callback) {
 	var arr = [];
 	for (var i in this.units) {
@@ -772,7 +771,6 @@ UnitManager.prototype.all = function(callback) {
 	}
 	return arr;
 }
-
 
 module.exports = UnitManager;
 

@@ -1,3 +1,7 @@
+/**
+ * Deals with the networking on the client side, to connect to the game server
+ */
+
 function ClientNetworking(options) {
 	var self = this;
 	this.packetsToSend = [];
@@ -7,7 +11,7 @@ function ClientNetworking(options) {
 	this.connection.onopen = function () {
 		self.connected = true;
 		options.onOpen();
-		console.log("connected");
+		console.log("Connected");
 
 		// Any packets to send?
 		for (var i in self.packetsToSend) {
@@ -27,6 +31,7 @@ function ClientNetworking(options) {
 		options.onMessage(packet.type, packet.data);
 	};
 }
+
 ClientNetworking.prototype.send = function(type, data) {
 	data = typeof data === "undefined" ? {} : data;
 	var packet = JSON.stringify({
@@ -39,6 +44,7 @@ ClientNetworking.prototype.send = function(type, data) {
 		this.packetsToSend.push(packet);
 	}
 }
+
 ClientNetworking.prototype.command = function(command) {
 	this.send("command", {
 		c: command

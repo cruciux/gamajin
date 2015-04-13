@@ -1,3 +1,7 @@
+/**
+ * Central starting point for the server code
+ */
+
 var TimeSyncronisation = require('./modules/time_syncronisation');
 var WebSocketServer = require('ws').Server;
 var GameLoop = require('./modules/game_loop');
@@ -17,12 +21,21 @@ gameWss.on('connection', function(connection) {
 
     var client = clients.create(connection);
 
-    connection.send(JSON.stringify({
-        type: 'init',
-        data: {
-            id: client.id
-        }
-    }));
+    client.send('init', {
+        id: client.id
+    });
+
+    // Tell the newly connected client about all the existing units in the game
+    units.each(function(unit) {
+        client.send('createUnit', {
+            id: unit.id,
+            clientId: client.id,
+            frame: gameLoop.getLastFrame().frame,
+            input: unit.getInput(gameLoop.getLastFrame().frame),
+            state: unit.getState(gameLoop.getLastFrame().frame)
+        });
+    });
+
 
     connection.on('message', function(message) {
     	var packet = JSON.parse(message);
@@ -31,53 +44,30 @@ gameWss.on('connection', function(connection) {
 
         if (type === 'time') {
         	var data = timeSync.receiveFromClient(packet.data);
-        	connection.send(JSON.stringify({
-        		type: 'time',
-        		data: data
-        	}));
+            client.send('time', data);
+
         } else if (type === 'frame') {
-            //console.log("send frame");
-            connection.send(JSON.stringify({
-                type: 'frame',
-                data: {
-                    time: gameLoop.getLastFrame().time,
-                    frame: gameLoop.getLastFrame().frame
-                }
-            }));
+            client.send('frame', {
+                time: gameLoop.getLastFrame().time,
+                frame: gameLoop.getLastFrame().frame
+            });
+
         } else if (type === 'input') {
 
             var frame = data.frame;
             var input = new Input(data.input);
 
-            console.log("Got input from unit on frame", frame);
-
-            //console.log("Input come in for frame", frame, "the last received frame is ",client.unit.lastReceivedInput, "and game is on frame", gameLoop.getLastFrame().frame);
-
             var previousState = client.unit.getState(infiniteNumber.decrease(frame));
-
-            /*
-            if (!previousState) {
-                console.log(frame, client.unit);
-                process.exit();
-            }
-            */
-
             var state = physics.nextUnitState(client.unit, previousState, input);
-
             client.unit.setFrame(frame, input, state);
 
-            // Tell clients about this
-            connection.send(JSON.stringify({
-                type: 'update',
-                data: {
-                    id: client.unit.id,
-                    frame: frame,
-                    input: input,
-                    state: state
-                }
-            }));
-
-            console.log(frame, input, state);
+            // Tell all clients about this new input
+            clients.send('update', {
+                id: client.unit.id,
+                frame: frame,
+                input: input,
+                state: state
+            });
 
             // Do we need to estimate some steps to bring the unit up to our current time?
             while (frame < gameLoop.getLastFrame().frame) {
@@ -90,9 +80,6 @@ gameWss.on('connection', function(connection) {
                 client.unit.setFrame(frame, estimatedInput, state);
             }
 
-
-            
-
         } else if (packet.type === 'command') {
             var command = packet.data.c;
             if (command === "create unit") {
@@ -100,16 +87,15 @@ gameWss.on('connection', function(connection) {
                     var unit = units.create(gameLoop.getLastFrame().frame);
                     client.unit = unit;
 
-                    connection.send(JSON.stringify({
-                        type: 'createUnit',
-                        data: {
-                            id: unit.id,
-                            clientId: client.id,
-                            frame: gameLoop.getLastFrame().frame,
-                            input: unit.getInput(gameLoop.getLastFrame().frame),
-                            state: unit.getState(gameLoop.getLastFrame().frame)
-                        }
-                    }));
+                    // Tell all clients to create this
+                    clients.send('createUnit', {
+                        id: unit.id,
+                        clientId: client.id,
+                        frame: gameLoop.getLastFrame().frame,
+                        input: unit.getInput(gameLoop.getLastFrame().frame),
+                        state: unit.getState(gameLoop.getLastFrame().frame)
+                    });
+
                 }
             }
 
@@ -118,9 +104,13 @@ gameWss.on('connection', function(connection) {
         }
     });
     connection.on('close', function() {
+        // If the client disconnects, remove their unit and cleanup
         clients.remove(client);
         units.remove(client.unit);
     	console.log("client connection closed");
+        clients.send('removeUnit', {
+            id: client.unit.id
+        });
     });
 });
 
@@ -129,16 +119,10 @@ var gameLoop = new GameLoop({
     onStep: function(frame) {
         var previousFrame = infiniteNumber.decrease(frame);
 
-        //console.log("Server is on frame", frame);
-
         units.each(function(unit) {
-
-            //console.log("Unit last has a frame", unit.lastReceivedInput);
 
             // See if we have a real input (and thus state) for this frame
             if (unit.lastReceivedInput < frame) {
-
-                //console.log("Creating an estimated input and state for them");
 
                 // Create an estimate from the previous input
                 var input = unit.getInput(previousFrame).createEstimateCopy();
@@ -148,22 +132,12 @@ var gameLoop = new GameLoop({
 
                 // Save
                 unit.setFrame(frame, input, state);
-
-                //console.log(frame, input, state);
-
-                //console.log("here");
             }
-
-            // We have a state for this frame now
-            //var pos = unit.getState(frame);
-            //console.log(pos);
-
-
-
         });
 
-        // Send data..
+        // Send data to any admin clients
         var data = JSON.stringify({
+            fps: gameLoop.fps,
             frame: frame,
             units: units.all()
         });
@@ -190,4 +164,3 @@ adminWss.on('connection', function(connection) {
     }})(adminId));
 });
 
-//console.log("Started", gameLoop.getLastFrame().frame);

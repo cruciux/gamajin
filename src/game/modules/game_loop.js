@@ -1,24 +1,30 @@
+/**
+ * Implements the logic for a game loop that runs an exact number of times per second.
+ *
+ * The game loop is run on the client and server
+ */
+
 var infiniteNumber = require('./infinite_number');
 
 function GameLoop(options) {
 	this.frame = 0;
-	this.fps = 5;
+	this.fps = 10;
 	this.stepTime = 1000 / this.fps;
 	this.onStep = options.onStep;
 	this.timeSync = options.timeSync;
     this.exit = false;
-
-    // initial frame is 0, now
     this.lastFrame = {frame: this.frame, time: this.timeSync.getTime()};
 };
+
 GameLoop.prototype.getLastFrame = function() {
 	return this.lastFrame;
 };
+
 GameLoop.prototype.stop = function() {
     this.exit = true;
 };
-GameLoop.prototype.start = function(options) {
 
+GameLoop.prototype.start = function(options) {
 	options = typeof options !== "undefined" ? options : {};
 
 	var self = this;
@@ -58,6 +64,5 @@ GameLoop.prototype.start = function(options) {
 		checkStep();
 	}, 1);
 };
-
 
 module.exports = GameLoop;

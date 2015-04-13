@@ -1,17 +1,12 @@
+/**
+ * A very basic HTML user interface for displaying the units, and capturing 
+ * user input via the keyboard.
+ */
+
 var Input = require('./input');
 
 function UI() {
-	this.avatar = document.createElement("div");
-	this.avatar.style.width = "10px";
-	this.avatar.style.height = "10px";
-	this.avatar.style.backgroundColor = "red";
-	this.avatar.style.position = "absolute";
-	this.avatar.style.left = "100px";
-	this.avatar.style.top = "100px";
-
-	window.avatar = this.avatar;
-
-	document.body.appendChild(this.avatar);
+	this.avatars = {};
 
 	var self = this;
 	this.keysDown = {};
@@ -22,19 +17,40 @@ function UI() {
 	document.body.addEventListener("keyup", function(e) {
 		delete self.keysDown[e.keyCode];
 	});
+}
 
+UI.prototype.createAvatar = function(id) {
+	// Create a simple div to represent the unit and add to the dom
+	var avatar = document.createElement("div");
+	avatar.style.width = "10px";
+	avatar.style.height = "10px";
+	avatar.style.backgroundColor = "red";
+	avatar.style.position = "absolute";
+	avatar.style.left = "100px";
+	avatar.style.top = "100px";
+	document.body.appendChild(avatar);
+	this.avatars[id] = avatar;
 }
-UI.prototype.setPosition = function(x, y) {
-	this.avatar.style.left = x + "px";
-	this.avatar.style.top = y + "px";
+
+UI.prototype.removeAvatar = function(id) {
+	// Delete from the DOM
+	if (this.avatars[id].parentNode) {
+		this.avatars[id].parentNode.removeChild(this.avatars[id]);
+	}
+	// Delete from the internal list
+	delete this.avatars[id];
 }
+
+UI.prototype.setPosition = function(id, x, y) {
+	this.avatars[id].style.left = x + "px";
+	this.avatars[id].style.top = y + "px";
+}
+
 UI.prototype.getInput = function() {
-	
 	var input = new Input({
 		horizontal: 0,
 		vertical: 0
 	});
-
 	if (87 in this.keysDown) { // Up
 		input.vertical -= 1;
 	}

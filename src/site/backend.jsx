@@ -1,3 +1,6 @@
+/**
+ * React code for the backend view
+ */
 
 var React = require('react');
 
@@ -22,7 +25,7 @@ var Backend = React.createClass({
     },
     render: function() {
 
-        var frameStart = this.state.data.frame - 10;
+        var frameStart = this.state.data.frame - 20;
         var frameEnd = this.state.data.frame + 2;
         var bars = [];
 
@@ -36,7 +39,7 @@ var Backend = React.createClass({
 
         return (
             <div>
-                <div>Frame: {this.state.data.frame}</div>
+                <div>Frame: {this.state.data.frame} (running at {this.state.data.fps}fps)</div>
                 <div>Players connected: {this.state.data.units.length}</div>
 
                 <div className="units" style={{overflow:'hidden'}}>
@@ -62,9 +65,8 @@ var Unit = React.createClass({
     render: function() {
 
         var blocks = [];
+
         for (var i=this.props.frameEnd; i>this.props.frameStart; i--) {
-
-
             if (this.props.unit.inputs[i] === undefined) {
                 blocks.push(
                     <div key={i} className="unit-frame"></div>
@@ -82,12 +84,10 @@ var Unit = React.createClass({
 
                 blocks.push(
                     <div key={i} className="unit-frame" style={styles}>
-                        Input=({input.horizontal},{input.vertical}) Pos=({state.x},{state.y})
+                        In=({input.horizontal},{input.vertical}) V=({state.vx},{state.vy}) P=({state.x},{state.y})
                     </div>
                 )
             }
-
-            
         }
 
         return (

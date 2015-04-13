@@ -1,7 +1,12 @@
+/**
+ * Implements logic for a number that wraps round, e.g. 0,1,2..98,99,0,1
+ *
+ * Primarily used for the number attached to each frame
+ */
 
 var wrapOnNumber = 10000;
 
-var correctNumber = function(number) {
+var boundNumber = function(number) {
 	if (number < 0) {
 		number = wrapOnNumber + number;
 	} else if (number >= wrapOnNumber) {
@@ -14,19 +19,19 @@ module.exports = {
 	increase: function(number, amount) {
 		amount = (typeof amount === "undefined") ? 1 : amount;
 		number += amount;
-		return correctNumber(number);
+		return boundNumber(number);
 	},
 	decrease: function(number, amount) {
 		amount = (typeof amount === "undefined") ? 1 : amount;
 		number -= amount;
-		return correctNumber(number);
+		return boundNumber(number);
 	},
 	isFirstBeforeSecond: function(first, second) {
 		if (Math.abs(first - second) < wrapOnNumber/2) {
 			return first < second;
 		}
-		first = correctNumber(first - (wrapOnNumber/2));
-		second = correctNumber(second - (wrapOnNumber/2));
+		first = boundNumber(first - (wrapOnNumber/2));
+		second = boundNumber(second - (wrapOnNumber/2));
 		return first < second;
 	},
 	difference: function(numberA, numberB) {
