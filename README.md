@@ -33,7 +33,7 @@ This will start:
 * a websocket server for the game client on port 9000
 * a websocket server for the backend admin panel on port 9001
 
-### Player the 'game'
+### Playing the 'game'
 
 If you're running locally, navigate to http://localhost:9000 - you will gain control of a small red square. Use WSAD keys to move the unit around.
 
