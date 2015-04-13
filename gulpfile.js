@@ -1,8 +1,8 @@
 var gulp = require('gulp');
+var del = require('del');
 var mocha = require('gulp-mocha');
 var browserify = require('browserify');
 var concat = require('gulp-concat');
-var clean = require('gulp-clean');
 var watch = require('gulp-watch');
 var reactify = require('reactify');
 var source = require('vinyl-source-stream');
@@ -23,8 +23,9 @@ gulp.task('scripts', function() {
 });
 
 gulp.task('clean', function() {
-    gulp.src(['public/bundle.js'], {read: false})
-        .pipe(clean());
+    del([
+        'public/dist/**'
+    ]);
 });
 
 gulp.task('default', ['clean'], function() {
