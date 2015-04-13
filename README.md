@@ -29,9 +29,9 @@ $ node src/run-servers.js
 
 This will start:
 
-> a webserver on port 8000
-> a websocket server for the game client on port 9000
-> a websocket server for the backend admin panel on port 9001
+* a webserver on port 8000
+* a websocket server for the game client on port 9000
+* a websocket server for the backend admin panel on port 9001
 
 ### Player the 'game'
 
@@ -46,3 +46,5 @@ You should see other connected clients move around (if you open a few more tabs 
 Navigate to http://localhost:8000/backend.html to see some cool stats about all the connected clients and their units!
 
 ![alt text](https://cloud.githubusercontent.com/assets/1318966/7122803/9ffd88a6-e215-11e4-8aa1-5e4e341155b0.png "Screenshot of unit")
+
+The frame numbers go up the right hand side in real time. The green blocks show the real received inputs from the client, and the black bars show estimated ones (due to the server not receiving packets for a while for some reason, such as lag)
