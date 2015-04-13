@@ -37,7 +37,7 @@ This will start:
 
 If you're running locally, navigate to http://localhost:9000 - you will gain control of a small red square. Use WSAD keys to move the unit around.
 
-You should see other connected clients (if you open a few more tabs) move around!
+You should see other connected clients move around (if you open a few more tabs sadly..!)
 
 ![alt text](https://cloud.githubusercontent.com/assets/1318966/7122788/882b73f0-e215-11e4-89fe-9994d9a5a591.png "Screenshot of unit")
 
