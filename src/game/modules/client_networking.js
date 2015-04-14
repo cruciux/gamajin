@@ -10,7 +10,6 @@ function ClientNetworking(options) {
 	this.connection = new WebSocket('ws://localhost:9000');
 	this.connection.onopen = function () {
 		self.connected = true;
-		options.onOpen();
 		console.log("Connected");
 
 		// Any packets to send?
