@@ -10,6 +10,7 @@ var UnitManager = require('./modules/unit_manager');
 var Input = require('./modules/input');
 var State = require('./modules/state');
 var infiniteNumber = require('./modules/infinite_number');
+var physics = require('./modules/physics');
 
 var units = new UnitManager();
 
@@ -41,13 +42,17 @@ var networking = new ClientNetworking({
 
 		} else if (type === "update") { // updated unit input/state
 
+            
             // Update the relevant unit..
             var unit = units.get(data.id);
             unit.setFrame(data.frame, new Input(data.input), new State(data.state));
 
+            //console.log("received state from server for frame", data.frame, "our game is on frame", gameLoop.getCurrentFrame());
+
             // Update the UI
             var state = unit.getLastReceivedState();
             ui.setPosition(unit.id, state.x, state.y);
+            
  
         } else if (type === "createUnit") {
 
@@ -95,10 +100,17 @@ var gameLoop = new GameLoop({
 	timeSync: timeSync,
 	onStep: function(frame) {
 
-		if (client.unit !== null) {
+		if (client.unit !== null) { // Only if we have a local unit...
 
             var input = ui.getInput();
             var previousState = client.unit.getLastReceivedState();
+
+            // Create the next state
+            var state = physics.nextUnitState(client.unit, previousState, input);
+            
+            client.unit.setFrame(frame, input, state);
+            
+            ui.setPosition(client.unit.id, state.x, state.y);
 
             // Send the local input to the server
 			networking.send('input', {
@@ -106,5 +118,8 @@ var gameLoop = new GameLoop({
 				input: input
 			});
 		}
+
+        // Do predictions for the other clients to bring them up to our level
+        
 	}
 });

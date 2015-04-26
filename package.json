@@ -2,7 +2,7 @@
   "name": "gamajin",
   "version": "1.0.0",
   "description": "Tech demo of HTML5 multiplayer game",
-  "main": "gulpfile.js",
+  "main": "src/run-servers.js",
   "repository": {
     "type": "git",
     "url": "http://github.com/npm/npm.git"

@@ -8,17 +8,21 @@ var infiniteNumber = require('./infinite_number');
 
 function GameLoop(options) {
 	this.frame = 0;
-	this.fps = 10;
+	this.fps = 1;
 	this.stepTime = 1000 / this.fps;
 	this.onStep = options.onStep;
 	this.timeSync = options.timeSync;
     this.exit = false;
-    this.lastFrame = {frame: this.frame, time: this.timeSync.getTime()};
+    this.lastFrameData = {frame: this.frame, time: this.timeSync.getTime()};
 };
 
 GameLoop.prototype.getLastFrame = function() {
-	return this.lastFrame;
+	return this.lastFrameData;
 };
+
+GameLoop.prototype.getCurrentFrame = function() {
+	return this.lastFrameData.frame;
+}
 
 GameLoop.prototype.stop = function() {
     this.exit = true;
@@ -49,8 +53,8 @@ GameLoop.prototype.start = function(options) {
 			self.frame = infiniteNumber.increase(self.frame);
 			self.onStep(self.frame); 
 
-			self.lastFrame.frame = self.frame;
-			self.lastFrame.time = now;
+			self.lastFrameData.frame = self.frame;
+			self.lastFrameData.time = now;
 		}
 		last = now;
 		setTimeout(function() {

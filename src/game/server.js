@@ -59,6 +59,7 @@ gameWss.on('connection', function(connection) {
 
             var previousState = client.unit.getState(infiniteNumber.decrease(frame));
             var state = physics.nextUnitState(client.unit, previousState, input);
+
             client.unit.setFrame(frame, input, state);
 
             // Tell all clients about this new input
@@ -69,15 +70,8 @@ gameWss.on('connection', function(connection) {
                 state: state
             });
 
-            // Do we need to estimate some steps to bring the unit up to our current time?
-            while (frame < gameLoop.getLastFrame().frame) {
-                frame = infiniteNumber.increase(frame);
-
-                var estimatedInput = input.createEstimateCopy();
-                var previousState = client.unit.getState(infiniteNumber.decrease(frame));
-                var state = physics.nextUnitState(client.unit, previousState, estimatedInput);
-
-                client.unit.setFrame(frame, estimatedInput, state);
+            if (infiniteNumber.isFirstBeforeSecond(frame, gameLoop.getCurrentFrame())) {
+                client.unit.setEstimatedInputAndState(frame, gameLoop.getCurrentFrame(), input);
             }
 
         } else if (packet.type === 'command') {
@@ -98,7 +92,6 @@ gameWss.on('connection', function(connection) {
 
                 }
             }
-
         } else {
             console.log("unknown packet", packet.type, packet.data);
         }
