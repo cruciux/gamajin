@@ -2,37 +2,41 @@
  * Central starting point for the server code
  */
 
+var config = require('../config');
 var TimeSyncronisation = require('./modules/time_syncronisation');
 var WebSocketServer = require('ws').Server;
 var GameLoop = require('./modules/game_loop');
 var UnitManager = require('./modules/unit_manager');
 var Input = require('./modules/input');
 var ClientManager = require('./modules/client_manager');
+var UnitState = require('./modules/unit_state');
 var infiniteNumber = require('./modules/infinite_number');
 var physics = require('./modules/physics');
 
 var timeSync = new TimeSyncronisation();
-var units = new UnitManager();
+var unitManager = new UnitManager();
 var clients = new ClientManager();
 
-
-var gameWss = new WebSocketServer({port: 9000});
+var gameWss = new WebSocketServer({port: config.webSocketServerPort});
 gameWss.on('connection', function(connection) {
 
     var client = clients.create(connection);
+    var frame = gameLoop.getCurrentFrame();
 
     client.send('init', {
         id: client.id
     });
 
     // Tell the newly connected client about all the existing units in the game
-    units.each(function(unit) {
+    unitManager.each(function(unit) {
+
         client.send('createUnit', {
             id: unit.id,
             clientId: client.id,
-            frame: gameLoop.getLastFrame().frame,
-            input: unit.getInput(gameLoop.getLastFrame().frame),
-            state: unit.getState(gameLoop.getLastFrame().frame)
+            frame: frame,
+            input: unit.states[frame].input,
+            velocity: unit.states[frame].velocity,
+            position: unit.states[frame].position,
         });
     });
 
@@ -53,41 +57,51 @@ gameWss.on('connection', function(connection) {
             });
 
         } else if (type === 'input') {
-
             var frame = data.frame;
-            var input = new Input(data.input);
+            var currentFrame = gameLoop.getCurrentFrame();
 
-            var previousState = client.unit.getState(infiniteNumber.decrease(frame));
-            var state = physics.nextUnitState(client.unit, previousState, input);
+            // Check we have a state setup for this frame
+            if (!(frame in client.unit.states)) { 
+                client.unit.states[frame] = new UnitState();
+            }        
 
-            client.unit.setFrame(frame, input, state);
+            client.unit.states[frame].input = data.input;
 
-            // Tell all clients about this new input
-            clients.send('update', {
+            var packet = {
                 id: client.unit.id,
                 frame: frame,
-                input: input,
-                state: state
-            });
+                input: data.input,
+                velocity: null,
+                position: null
+            };
 
-            if (infiniteNumber.isFirstBeforeSecond(frame, gameLoop.getCurrentFrame())) {
-                client.unit.setEstimatedInputAndState(frame, gameLoop.getCurrentFrame(), input);
+            // If this is an input for a past frame replay all physics from this point up to now
+            if (infiniteNumber.isFirstBeforeSecond(frame, currentFrame) || frame == currentFrame) {
+                physics.replayWorldSteps(frame, currentFrame, unitManager);
+
+                packet.velocity = client.unit.states[frame].velocity;
+                packet.position = client.unit.states[frame].position;
             }
+
+            // Tell all clients about this new input and the velocity/position for that frame
+            clients.send('update', packet);
 
         } else if (packet.type === 'command') {
             var command = packet.data.c;
             if (command === "create unit") {
                 if (client.unit === null) {
-                    var unit = units.create(gameLoop.getLastFrame().frame);
+                    var frame = gameLoop.getLastFrame().frame;
+                    var unit = unitManager.create(frame, {x: 200, y: 200});
                     client.unit = unit;
 
                     // Tell all clients to create this
                     clients.send('createUnit', {
                         id: unit.id,
                         clientId: client.id,
-                        frame: gameLoop.getLastFrame().frame,
-                        input: unit.getInput(gameLoop.getLastFrame().frame),
-                        state: unit.getState(gameLoop.getLastFrame().frame)
+                        frame: frame,
+                        input: unit.states[frame].input,
+                        velocity: unit.states[frame].velocity,
+                        position: unit.states[frame].position
                     });
 
                 }
@@ -99,35 +113,27 @@ gameWss.on('connection', function(connection) {
     connection.on('close', function() {
         // If the client disconnects, remove their unit and cleanup
         clients.remove(client);
-        units.remove(client.unit);
+        if (client.unit !== null) {
+            unitManager.remove(client.unit);
+            clients.send('removeUnit', {
+                id: client.unit.id
+            });
+        }
     	console.log("client connection closed");
-        clients.send('removeUnit', {
-            id: client.unit.id
-        });
+        
     });
 });
 
 var gameLoop = new GameLoop({
     timeSync: timeSync,
     onStep: function(frame) {
-        var previousFrame = infiniteNumber.decrease(frame);
 
-        units.each(function(unit) {
+        // Step the world physics
+        physics.stepWorld(frame, unitManager);
 
-            // See if we have a real input (and thus state) for this frame
-            if (unit.lastReceivedInput < frame) {
 
-                // Create an estimate from the previous input
-                var input = unit.getInput(previousFrame).createEstimateCopy();
 
-                // Do the physics
-                var state = physics.nextUnitState(unit, unit.getState(previousFrame), input);
-
-                // Save
-                unit.setFrame(frame, input, state);
-            }
-        });
-
+        /*
         // Send data to any admin clients
         var data = JSON.stringify({
             fps: gameLoop.fps,
@@ -137,16 +143,16 @@ var gameLoop = new GameLoop({
         for (var i in adminConnections) {
             adminConnections[i].send(data);
         }
+        */
 
     }
 });
 gameLoop.start();
 
-
 // Websocket connections for admin clients
 var adminId = 0;
 var adminConnections = {};
-var adminWss = new WebSocketServer({port: 9001});
+var adminWss = new WebSocketServer({port: 9011});
 adminWss.on('connection', function(connection) {
     adminId++;
     console.log("added", adminId);
@@ -156,4 +162,3 @@ adminWss.on('connection', function(connection) {
         delete adminConnections[adminId];
     }})(adminId));
 });
-

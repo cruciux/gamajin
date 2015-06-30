@@ -36,5 +36,13 @@ module.exports = {
 	},
 	difference: function(numberA, numberB) {
 		// note: order doesn't matter
+	},
+	loopInclusively: function(from, to, callback) {
+		var current = parseInt(from);
+		var end = parseInt(to);
+		while (this.isFirstBeforeSecond(current,end) || current === end) {
+			callback(current);
+			current = this.increase(current);
+		}
 	}
 }

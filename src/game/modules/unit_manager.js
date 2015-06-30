@@ -4,32 +4,40 @@
 
 var Unit = require('./unit');
 var Input = require('./input');
-var State = require('./state');
+var UnitState = require('./unit_state');
 
 function UnitManager() {
 	this.id = 1;
 	this.units = {};
 }
 
-UnitManager.prototype.create = function(frame) {
-	var unit = new Unit(this.id);
+UnitManager.prototype.nextId = function() {
+	return this.id++;
+}
 
-	// Create the initial input/state
-	unit.setFrame(frame, new Input({horizontal:0, vertical:0}), new State({x:200, y:200}));
+UnitManager.prototype.create = function(frame, position) {
+	var unit = new Unit(this.nextId());
+
+	unit.states[frame] = new UnitState({
+		input: {x: 0, y: 0},
+		velocity: {x: 0, y: 0},
+		position: position,
+	});
 
 	this.units[unit.id] = unit;
-	this.id++;
 	return unit;
 }
 
-UnitManager.prototype.createFrom = function(options) {
-	var unit = new Unit(options.id);
+UnitManager.prototype.createFrom = function(id, frame, input, velocity, position) {
+	var unit = new Unit(id);
 
-	// Create the initial input/state for the current frame
-	unit.setFrame(options.frame, options.input, options.state);
+	unit.states[frame] = new UnitState({
+		input: input,
+		velocity: velocity,
+		position: position,
+	});
 
 	this.units[unit.id] = unit;
-	this.id++;
 	return unit;
 }
 

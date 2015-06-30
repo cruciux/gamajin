@@ -3,8 +3,6 @@
  * user input via the keyboard.
  */
 
-var Input = require('./input');
-
 function UI() {
 	this.avatars = {};
 
@@ -19,15 +17,15 @@ function UI() {
 	});
 }
 
-UI.prototype.createAvatar = function(id) {
+UI.prototype.createAvatar = function(id, position) {
 	// Create a simple div to represent the unit and add to the dom
 	var avatar = document.createElement("div");
 	avatar.style.width = "10px";
 	avatar.style.height = "10px";
 	avatar.style.backgroundColor = "red";
 	avatar.style.position = "absolute";
-	avatar.style.left = "100px";
-	avatar.style.top = "100px";
+	avatar.style.left = position.x + "px";
+	avatar.style.top = position.y + "px";
 	document.body.appendChild(avatar);
 	this.avatars[id] = avatar;
 }
@@ -47,21 +45,21 @@ UI.prototype.setPosition = function(id, x, y) {
 }
 
 UI.prototype.getInput = function() {
-	var input = new Input({
-		horizontal: 0,
-		vertical: 0
-	});
+	var input = {
+		x: 0,
+		y: 0
+	};
 	if (87 in this.keysDown) { // Up
-		input.vertical -= 1;
+		input.y -= 1;
 	}
 	if (83 in this.keysDown) { // Down
-		input.vertical += 1;
+		input.y += 1;
 	}
 	if (68 in this.keysDown) { // Right
-		input.horizontal += 1;
+		input.x += 1;
 	}
 	if (65 in this.keysDown) { // Left
-		input.horizontal -= 1;
+		input.x -= 1;
 	}
 	return input;
 }

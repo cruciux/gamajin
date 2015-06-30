@@ -2,17 +2,18 @@
  * Central starting point for the client code
  */
 
+var config = require('../config');
 var TimeSyncronisation = require('./modules/time_syncronisation');
 var GameLoop = require('./modules/game_loop');
 var UI = require('./modules/ui');
 var ClientNetworking = require('./modules/client_networking');
 var UnitManager = require('./modules/unit_manager');
 var Input = require('./modules/input');
-var State = require('./modules/state');
+var UnitState = require('./modules/unit_state');
 var infiniteNumber = require('./modules/infinite_number');
 var physics = require('./modules/physics');
 
-var units = new UnitManager();
+var unitManager = new UnitManager();
 
 // Represents the local client
 var client = {
@@ -22,6 +23,7 @@ var client = {
 
 // Kick-off the client networking to the server
 var networking = new ClientNetworking({
+    webSocketServerPort: config.webSocketServerPort,
 	onMessage: function(type, data) {
 
 		if (type === "init") { // immediately after connected
@@ -42,37 +44,47 @@ var networking = new ClientNetworking({
 
 		} else if (type === "update") { // updated unit input/state
 
-            
+            var currentFrame = gameLoop.getCurrentFrame();
+
             // Update the relevant unit..
-            var unit = units.get(data.id);
-            unit.setFrame(data.frame, new Input(data.input), new State(data.state));
+            var unit = unitManager.get(data.id);
 
-            //console.log("received state from server for frame", data.frame, "our game is on frame", gameLoop.getCurrentFrame());
+            // Replace/set the state
+            if (!(data.frame in unit.states)) {
+                unit.states[data.frame] = new UnitState();
+            }
+            unit.states[data.frame].input = data.input;
 
-            // Update the UI
-            var state = unit.getLastReceivedState();
-            ui.setPosition(unit.id, state.x, state.y);
-            
- 
+            if (data.velocity !== null && data.position !== null) {
+                unit.states[data.frame].velocity = data.velocity;
+                unit.states[data.frame].position = data.position;
+            }
+
+            if (infiniteNumber.isFirstBeforeSecond(data.frame, currentFrame)) {
+                physics.replayWorldSteps(data.frame, currentFrame, unitManager);
+            }
+
+            // Update the UI (maybe)
+            // It could be the current frame is old, and we don't actually have a state for the old frame
+            if (currentFrame in unit.states) {
+                var position = unit.states[currentFrame].position;
+                ui.setPosition(unit.id, position.x, position.y);
+            }
+                
         } else if (type === "createUnit") {
 
             // The server has told us to make a new unit
-			var unit = units.createFrom({
-				id: data.id,
-				frame: data.frame,
-				input: new Input(data.input),
-				state: new State(data.state)
-			});
+			var unit = unitManager.createFrom(data.id, data.frame, data.input, data.velocity, data.position);
 			if (data.clientId === client.id) {
 				client.unit = unit;
 			}
-            ui.createAvatar(unit.id);
+            ui.createAvatar(unit.id, data.position);
 
         } else if (type === "removeUnit") {
 
-            var unit = units.get(data.id);
+            var unit = unitManager.get(data.id);
             
-            units.remove(unit);
+            unitManager.remove(unit);
             ui.removeAvatar(unit.id);
 
 		} else {
@@ -80,6 +92,8 @@ var networking = new ClientNetworking({
 		}
 	}
 });
+
+window.net = networking;
 
 // Setup the time sync module
 var timeSync = new TimeSyncronisation({
@@ -100,26 +114,25 @@ var gameLoop = new GameLoop({
 	timeSync: timeSync,
 	onStep: function(frame) {
 
-		if (client.unit !== null) { // Only if we have a local unit...
-
+		if (client.unit !== null) {
+            // Capture input from the local unit
             var input = ui.getInput();
-            var previousState = client.unit.getLastReceivedState();
-
-            // Create the next state
-            var state = physics.nextUnitState(client.unit, previousState, input);
+            client.unit.states[frame] = new UnitState({input: input});
             
-            client.unit.setFrame(frame, input, state);
-            
-            ui.setPosition(client.unit.id, state.x, state.y);
+            // Send input to server immediately
+            networking.send("input", {
+                frame: frame,
+                input: input
+            })
+        }
 
-            // Send the local input to the server
-			networking.send('input', {
-				frame: frame,
-				input: input
-			});
-		}
+        // Step the world physics
+        physics.stepWorld(frame, unitManager);
 
-        // Do predictions for the other clients to bring them up to our level
+        // Render the latest state
+        unitManager.each(function(unit) {
+            ui.setPosition(unit.id, unit.states[frame].position.x, unit.states[frame].position.y);
+        });
         
 	}
 });

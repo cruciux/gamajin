@@ -4,11 +4,12 @@
  * The game loop is run on the client and server
  */
 
+var config = require('../../config');
 var infiniteNumber = require('./infinite_number');
 
 function GameLoop(options) {
 	this.frame = 0;
-	this.fps = 1;
+	this.fps = config.fps;
 	this.stepTime = 1000 / this.fps;
 	this.onStep = options.onStep;
 	this.timeSync = options.timeSync;
@@ -43,6 +44,7 @@ GameLoop.prototype.start = function(options) {
 		// How much is left over 
 		dt = (this.timeSync.getTime() - options.startTime) % this.stepTime;
 		this.frame = options.startFrame + skip;
+		this.lastFrameData.frame = this.frame;
 	}
 
 	var checkStep = function() {

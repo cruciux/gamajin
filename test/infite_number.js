@@ -1,6 +1,6 @@
 var assert = require("assert"); // node.js core module
 
-var infiniteNumber = require('../src/modules/infinite_number');
+var infiniteNumber = require('../src/game/modules/infinite_number');
 
 describe('infiniteNumber', function() {
   describe('#increase()', function() {
@@ -30,5 +30,23 @@ describe('infiniteNumber', function() {
       		assert.equal(false, infiniteNumber.isFirstBeforeSecond(pair[0], pair[1]));
 	    });
   	});
+  });
+  describe('#loopInclusively()', function() {
+    it('should loop inclusively the correct number of times', function(){
+      var expectedValues = [5,6,7,8];
+      var actualValues = [];
+      infiniteNumber.loopInclusively(5,8,function(number) {
+        actualValues.push(number);
+      });
+      assert.deepEqual(expectedValues, actualValues);
+    });
+    it('should loop inclusively the correct number of times', function(){
+      var expectedValues = [9998,9999,0,1,2];
+      var actualValues = [];
+      infiniteNumber.loopInclusively(9998,2,function(number) {
+        actualValues.push(number);
+      });
+      assert.deepEqual(expectedValues, actualValues);
+    });
   });
 });
