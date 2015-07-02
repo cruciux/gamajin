@@ -20,7 +20,7 @@ function TimeSyncronisation(options) {
 	
 	this.inInitialPhase = false;
 	this.numInitialMessages = 20;
-	this.spaceBetweenInitialMessages = 10; // Good to set this to average latency
+	this.spaceBetweenInitialMessages = 100; // Good to set this to average latency
 
 	this.spaceBetweenLaterMessages = 250;
 	this.intervalId = null;

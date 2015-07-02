@@ -10,18 +10,21 @@ var friction = 0.9;
 
 module.exports = {
 
-    stepWorld: function(frame, unitManager) {
+    stepWorld: function(frame, unitManager, replaying) {
+
+        replaying = replaying || false;
+
+        //console.log("stepWorld frame", frame);
 
         var previousFrame = infiniteNumber.decrease(frame);
 
         unitManager.each(function(unit) {
 
-            /*
-            if (!(frame in unit.states) && !(previousFrame in unit.states)) {
+            //console.log("stepWorld unit", unit.id);
+            if (replaying && !(frame in unit.states) && !(previousFrame in unit.states)) {
                 // Skip this unit if it has no state for this frame
                 return;
             }
-            */
 
             var state = frame in unit.states ? unit.states[frame] : new UnitState();
             var previousState = previousFrame in unit.states ? unit.states[previousFrame] : new UnitState({
@@ -68,20 +71,13 @@ module.exports = {
 
             unit.states[frame] = state;
 
-            if (state.position.x == 0 || state.position.y == 0) {
-                console.log(previousState);
-                console.log(state);
-                console.log(unit.states);
-                console.log(frame);
-                console.log( new Error().stack )
-                process.exit();
-            }
         });
     },
     replayWorldSteps: function(fromFrame, toFrame, unitManager) {
+        //console.log("replay steps from", fromFrame, "to", toFrame);
         var self = this;
         infiniteNumber.loopInclusively(fromFrame, toFrame, function(frame) {
-            self.stepWorld(frame, unitManager);
+            self.stepWorld(frame, unitManager, true);
         })
     }
 }

@@ -33,14 +33,11 @@ var networking = new ClientNetworking({
 		} else if (type === "time") { // for time syncronisation
 			timeSync.receiveFromServer(data);
 
-		} else if (type === "frame") { // start game
+		} else if (type === "startGameLoop") { // start game
 			gameLoop.start({
 				startTime: data.time,
 				startFrame: data.frame
 			});
-
-            // Tell the server to create us a unit
-			networking.command("create unit");
 
 		} else if (type === "update") { // updated unit input/state
 
@@ -80,6 +77,18 @@ var networking = new ClientNetworking({
 			}
             ui.createAvatar(unit.id, data.position);
 
+            //console.log("told to create unit, we're on frame", gameLoop.getCurrentFrame(), "unit has state for frame", data.frame);
+
+            // hack
+            if (gameLoop.getCurrentFrame() != data.frame) {
+                // If we don't have a state for the current frame, we're not going to be able to render... hmm (maybe we should just not render? lol)
+                unit.states[gameLoop.getCurrentFrame()] = new UnitState({
+                    input: data.input,
+                    velocity: data.velocity,
+                    position: data.position
+                });
+            }            
+
         } else if (type === "removeUnit") {
 
             var unit = unitManager.get(data.id);
@@ -102,7 +111,7 @@ var timeSync = new TimeSyncronisation({
 	},
 	onFinished: function() {
 		console.log("initial sync complete", "server ahead by", timeSync.serverClockAheadByTime);
-		networking.send('frame');
+		networking.send('finishedSync');
 	}
 });
 

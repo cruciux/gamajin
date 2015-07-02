@@ -27,18 +27,7 @@ gameWss.on('connection', function(connection) {
         id: client.id
     });
 
-    // Tell the newly connected client about all the existing units in the game
-    unitManager.each(function(unit) {
-
-        client.send('createUnit', {
-            id: unit.id,
-            clientId: client.id,
-            frame: frame,
-            input: unit.states[frame].input,
-            velocity: unit.states[frame].velocity,
-            position: unit.states[frame].position,
-        });
-    });
+    
 
 
     connection.on('message', function(message) {
@@ -50,13 +39,51 @@ gameWss.on('connection', function(connection) {
         	var data = timeSync.receiveFromClient(packet.data);
             client.send('time', data);
 
-        } else if (type === 'frame') {
-            client.send('frame', {
+        } else if (type === 'finishedSync') {
+
+            var frame = gameLoop.getCurrentFrame();
+
+            client.finishedSyncingTime = true;
+
+            client.send('startGameLoop', {
                 time: gameLoop.getLastFrame().time,
                 frame: gameLoop.getLastFrame().frame
             });
 
+            // Tell the newly connected client about all the existing units in the game
+            unitManager.each(function(unit) {
+                client.send('createUnit', {
+                    id: unit.id,
+                    clientId: client.id,
+                    frame: frame,
+                    input: unit.states[frame].input,
+                    velocity: unit.states[frame].velocity,
+                    position: unit.states[frame].position,
+                });
+            });
+
+             // Create a unit for them
+            
+            var unit = unitManager.create(frame, {x: 200, y: 200});
+            client.unit = unit;
+
+            console.log("created unit", unit.id, "on frame", frame);
+
+            // Tell all clients to create this
+            clients.send('createUnit', {
+                id: unit.id,
+                clientId: client.id,
+                frame: frame,
+                input: unit.states[frame].input,
+                velocity: unit.states[frame].velocity,
+                position: unit.states[frame].position
+            });
+
+
         } else if (type === 'input') {
+
+            //console.log("receivedInput from unit", client.unit.id, "for frame", data.frame);
+
             var frame = data.frame;
             var currentFrame = gameLoop.getCurrentFrame();
 
@@ -89,22 +116,7 @@ gameWss.on('connection', function(connection) {
         } else if (packet.type === 'command') {
             var command = packet.data.c;
             if (command === "create unit") {
-                if (client.unit === null) {
-                    var frame = gameLoop.getLastFrame().frame;
-                    var unit = unitManager.create(frame, {x: 200, y: 200});
-                    client.unit = unit;
-
-                    // Tell all clients to create this
-                    clients.send('createUnit', {
-                        id: unit.id,
-                        clientId: client.id,
-                        frame: frame,
-                        input: unit.states[frame].input,
-                        velocity: unit.states[frame].velocity,
-                        position: unit.states[frame].position
-                    });
-
-                }
+               
             }
         } else {
             console.log("unknown packet", packet.type, packet.data);

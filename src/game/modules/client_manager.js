@@ -34,7 +34,10 @@ ClientManager.prototype.send = function(type, data) {
         data: data
     });
     this.each(function(client) {
-    	client.connection.send(packet);
+
+        if (client.canReceive(type)) {
+    	   client.connection.send(packet);
+        }
     });
 }
 
