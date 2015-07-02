@@ -20,23 +20,18 @@ module.exports = {
 
         unitManager.each(function(unit) {
 
-            //console.log("stepWorld unit", unit.id);
-            if (replaying && !(frame in unit.states) && !(previousFrame in unit.states)) {
-                // Skip this unit if it has no state for this frame
+            // If we have no previous state then just skip
+            if (!(previousFrame in unit.states)) {
                 return;
             }
 
-            var state = frame in unit.states ? unit.states[frame] : new UnitState();
-            var previousState = previousFrame in unit.states ? unit.states[previousFrame] : new UnitState({
-                input: state.input,
-                velocity: state.velocity,
-                position: state.position
-            });
+            // We know we have a previous state now.
+            var previousState = unit.states[previousFrame];
 
-            // Ensure we have an input for this frame, else use the previous one
             if (!(frame in unit.states)) {
                 unit.states[frame] = new UnitState();
             }
+            var state = unit.states[frame];
 
             if (state.input.x === null || state.input.y === null) {
                 state.input.x = previousState.input.x !== null ? previousState.input.x : 0;

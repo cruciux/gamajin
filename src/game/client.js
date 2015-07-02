@@ -77,17 +77,13 @@ var networking = new ClientNetworking({
 			}
             ui.createAvatar(unit.id, data.position);
 
-            //console.log("told to create unit, we're on frame", gameLoop.getCurrentFrame(), "unit has state for frame", data.frame);
-
-            // hack
-            if (gameLoop.getCurrentFrame() != data.frame) {
-                // If we don't have a state for the current frame, we're not going to be able to render... hmm (maybe we should just not render? lol)
-                unit.states[gameLoop.getCurrentFrame()] = new UnitState({
-                    input: data.input,
-                    velocity: data.velocity,
-                    position: data.position
-                });
-            }            
+            var currentFrame = gameLoop.getCurrentFrame();
+            if (infiniteNumber.isFirstBeforeSecond(data.frame, currentFrame)) {
+                // Go back and do predictions to bring the unit up to date..
+                physics.replayWorldSteps(data.frame, currentFrame, unitManager);
+                console.log("Doing predictions from",data.frame, "to", currentFrame);
+            }
+          
 
         } else if (type === "removeUnit") {
 
@@ -140,7 +136,13 @@ var gameLoop = new GameLoop({
 
         // Render the latest state
         unitManager.each(function(unit) {
-            ui.setPosition(unit.id, unit.states[frame].position.x, unit.states[frame].position.y);
+
+            // We may not have state for this frame if the unit is in the future (can happen when they join)
+            if (frame in unit.states) {
+                ui.setPosition(unit.id, unit.states[frame].position.x, unit.states[frame].position.y);
+            } else {
+                ui.setPosition(unit.id, null, null); // Don't show the unit at the moment!
+            }
         });
         
 	}

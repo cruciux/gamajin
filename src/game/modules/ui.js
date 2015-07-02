@@ -40,8 +40,13 @@ UI.prototype.removeAvatar = function(id) {
 }
 
 UI.prototype.setPosition = function(id, x, y) {
-	this.avatars[id].style.left = x + "px";
-	this.avatars[id].style.top = y + "px";
+	if (x === null || y === null) {
+		this.avatars[id].style.display = "none";
+	} else {
+		this.avatars[id].style.left = x + "px";
+		this.avatars[id].style.top = y + "px";
+		this.avatars[id].style.display = "block";
+	}
 }
 
 UI.prototype.getInput = function() {
