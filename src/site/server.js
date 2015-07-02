@@ -6,7 +6,7 @@ var config = require('../config');
 var express = require('express');
 var app = express();
 
-app.use(express.static('./public'));
+app.use(express.static(__dirname + '/../../public'));
 
 var server = app.listen(config.webServerPort, function () {
     var host = server.address().address;
